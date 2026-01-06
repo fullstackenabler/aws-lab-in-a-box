@@ -357,17 +357,17 @@ if (((-not (Test-Path "C:\sdm.done")) -and (Test-Path "C:\adcs.done"))) {
         # Create a new GPO if it doesn't exist
         $GPO = Get-GPO -Name $GPOName -ErrorAction SilentlyContinue
         if ($null -eq $GPO) {
-            $GPO = New-GPO -Name $GPOName -Comment "GPO to disable NLA and enable smart card authentication for all RDP connections"
+            $GPO = New-GPO -Name $GPOName -Comment "GPO to Enable smart card authentication for all RDP connections"
             "[DCInstall] New GPO '$GPOName' created"
         } else {
             "[DCInstall] GPO '$GPOName' already exists"
         }
 
         # Disable NLA (Network Level Authentication)
-        $RegistryKeyPathNLA = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
-        $RegistryValueNameNLA = "UserAuthentication"
-        $GPO | Set-GPRegistryValue -Key $RegistryKeyPathNLA -ValueName $RegistryValueNameNLA -Type DWord -Value 0
-        "[DCInstall] NLA disabled in GPO"
+        # $RegistryKeyPathNLA = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
+        # $RegistryValueNameNLA = "UserAuthentication"
+        # $GPO | Set-GPRegistryValue -Key $RegistryKeyPathNLA -ValueName $RegistryValueNameNLA -Type DWord -Value 0
+        # "[DCInstall] NLA disabled in GPO"
 
         # Enable Smart Card service (SCardSvr) to start automatically
         $RegistryKeyPathSmartCardService = "HKLM\SYSTEM\CurrentControlSet\Services\SCardSvr"

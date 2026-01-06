@@ -363,12 +363,6 @@ if (((-not (Test-Path "C:\sdm.done")) -and (Test-Path "C:\adcs.done"))) {
             "[DCInstall] GPO '$GPOName' already exists"
         }
 
-        # Disable NLA (Network Level Authentication)
-        # $RegistryKeyPathNLA = "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
-        # $RegistryValueNameNLA = "UserAuthentication"
-        # $GPO | Set-GPRegistryValue -Key $RegistryKeyPathNLA -ValueName $RegistryValueNameNLA -Type DWord -Value 0
-        # "[DCInstall] NLA disabled in GPO"
-
         # Enable Smart Card service (SCardSvr) to start automatically
         $RegistryKeyPathSmartCardService = "HKLM\SYSTEM\CurrentControlSet\Services\SCardSvr"
         $RegistryValueNameSmartCardService = "Start"
@@ -962,8 +956,8 @@ if (((-not (Test-Path "C:\sdm.done")) -and (Test-Path "C:\adcs.done"))) {
         "[DCInstall] ADCS server will auto-enroll for web server certificate via GPO"
         "[DCInstall] Auto-enrollment will occur when ADCS server applies group policy"
 
-        "[DCInstall] NOTE: SubCA template publishing must be done manually after ADCS is online"
-        "[DCInstall] Run: C:\PublishSubCATemplates.ps1 on the DC after ADCS deployment completes"
+        "[DCInstall] NOTE: Certificate templates will be published to SubCA automatically by ADCS server"
+        "[DCInstall] The ADCS provisioning script uses Add-CATemplate with domain admin credentials"
 
         "Certificates and GPOs updated" | Out-File "C:\sdm.done"
         "[DCInstall] Domain Controller setup completed successfully! $(Get-Date)"

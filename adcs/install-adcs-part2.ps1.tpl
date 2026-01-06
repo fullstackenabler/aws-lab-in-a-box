@@ -321,6 +321,24 @@ try {
                             Write-Log "WARNING: CA operational check may have failed - review ping output above"
                         }
 
+                        # Publish SubCA certificate to Active Directory
+                        Write-Log "Publishing SubCA certificate to Active Directory..."
+                        try {
+                            # Publish to SubCA container (for chain building)
+                            $publishResult = certutil -f -dspublish "$certFile" SubCA 2>&1
+                            Write-Log "Publish to SubCA container result: $publishResult"
+
+                            # Also publish to NTAuthCA for smart card authentication chain validation
+                            $ntAuthResult = certutil -f -dspublish "$certFile" NTAuthCA 2>&1
+                            Write-Log "Publish to NTAuthCA result: $ntAuthResult"
+
+                            Write-Log "SubCA certificate published to Active Directory successfully"
+                        } catch {
+                            Write-Log "WARNING: Failed to publish SubCA certificate to AD: $_"
+                            Write-Log "This may cause certificate chain validation issues"
+                            Write-Log "You can manually publish with: certutil -dspublish $certFile SubCA"
+                        }
+
                     } catch {
                         Write-Log "ERROR installing certificate with scheduled task: $_"
                         Write-Log "Exception: $($_.Exception.Message)"
@@ -565,34 +583,97 @@ try {
 }
 
 #--------------------------------------------------------------
-# Step 9: Wait for Templates to be Published by DC
+# Step 9: Publish Certificate Templates to SubCA
 #--------------------------------------------------------------
-Write-Log "Step 9: Waiting for certificate templates to be published by DC..."
-Write-Log "NOTE: DC publishes templates to SubCA via background task"
-Write-Log "Templates should appear within 5-30 minutes after DC provisioning"
-
-# Note: The DC creates a scheduled task that waits for this SubCA to come online
-# and then publishes StrongDM and ADCS-WebServer templates to it.
-# We don't need to do anything here - just log that we're waiting.
+Write-Log "Step 9: Publishing certificate templates to SubCA..."
+Write-Log "Using Add-CATemplate with domain admin credentials"
 
 try {
-    # Check if templates are already available
     Import-Module ADCSAdministration -ErrorAction SilentlyContinue
-    $templates = Get-CATemplate -ErrorAction SilentlyContinue
 
-    if ($templates | Where-Object { $_.Name -eq "StrongDM" }) {
+    # Check current templates
+    $existingTemplates = Get-CATemplate -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+    Write-Log "Currently published templates: $($existingTemplates -join ', ')"
+
+    # Publish StrongDM template
+    if ($existingTemplates -contains "StrongDM") {
         Write-Log "StrongDM template is already published"
     } else {
-        Write-Log "StrongDM template not yet published (will be published by DC)"
+        Write-Log "Publishing StrongDM template using scheduled task with domain admin credentials..."
+
+        $taskName = "Publish-StrongDM-Template"
+        $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument (
+            '-NoProfile -ExecutionPolicy Bypass -Command ' +
+            '"Import-Module ADCSAdministration; Add-CATemplate -Name ''StrongDM'' -Force"'
+        )
+
+        Register-ScheduledTask -TaskName $taskName `
+            -Action $taskAction `
+            -User "${domain_fqdn}\${domain_admin_user}" `
+            -Password "${domain_password}" `
+            -RunLevel Highest `
+            -Force | Out-Null
+
+        Start-ScheduledTask -TaskName $taskName
+        Write-Log "Started task to publish StrongDM template"
+
+        # Wait for task to complete
+        Start-Sleep -Seconds 5
+        $taskResult = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($taskResult.State -eq "Ready") {
+            Write-Log "StrongDM template published successfully"
+        }
+
+        # Cleanup
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
     }
 
-    if ($templates | Where-Object { $_.Name -eq "ADCS-WebServer" }) {
+    # Publish ADCS-WebServer template
+    if ($existingTemplates -contains "ADCS-WebServer") {
         Write-Log "ADCS-WebServer template is already published"
     } else {
-        Write-Log "ADCS-WebServer template not yet published (will be published by DC)"
+        Write-Log "Publishing ADCS-WebServer template using scheduled task with domain admin credentials..."
+
+        $taskName = "Publish-ADCSWebServer-Template"
+        $taskAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument (
+            '-NoProfile -ExecutionPolicy Bypass -Command ' +
+            '"Import-Module ADCSAdministration; Add-CATemplate -Name ''ADCS-WebServer'' -Force"'
+        )
+
+        Register-ScheduledTask -TaskName $taskName `
+            -Action $taskAction `
+            -User "${domain_fqdn}\${domain_admin_user}" `
+            -Password "${domain_password}" `
+            -RunLevel Highest `
+            -Force | Out-Null
+
+        Start-ScheduledTask -TaskName $taskName
+        Write-Log "Started task to publish ADCS-WebServer template"
+
+        # Wait for task to complete
+        Start-Sleep -Seconds 5
+        $taskResult = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($taskResult.State -eq "Ready") {
+            Write-Log "ADCS-WebServer template published successfully"
+        }
+
+        # Cleanup
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
     }
+
+    # Verify templates are now published
+    $updatedTemplates = Get-CATemplate -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+    Write-Log "Templates now published: $($updatedTemplates -join ', ')"
+
+    if ($updatedTemplates -contains "StrongDM" -and $updatedTemplates -contains "ADCS-WebServer") {
+        Write-Log "SUCCESS: Both StrongDM and ADCS-WebServer templates are published"
+    } else {
+        Write-Log "WARNING: Some templates may not be published correctly"
+    }
+
 } catch {
-    Write-Log "Could not check template status: $_"
+    Write-Log "ERROR publishing templates: $_"
+    Write-Log "Exception details: $($_.Exception.Message)"
 }
 
 #--------------------------------------------------------------

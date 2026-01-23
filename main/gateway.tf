@@ -10,6 +10,12 @@
 # - IAM role with Secrets Manager access permissions
 # - EC2 instance running the StrongDM Gateway service
 # - Network configuration for public internet access
+#
+# IMPORTANT: Gateway tokens are single-use only.
+# To recreate both the SDM node and EC2 instance with a fresh token:
+#   terraform taint 'sdm_node.gateway'
+#   terraform taint 'aws_instance.gateway'
+# Or use: terraform destroy -target=sdm_node.gateway -target=aws_instance.gateway && terraform apply
 #--------------------------------------------------------------
 
 # Elastic IP for the gateway to ensure a stable public endpoint
@@ -56,13 +62,13 @@ resource "aws_iam_policy" "secrets_manager_policy" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue","secretsmanager:CreateSecret","secretsmanager:DeleteSecret","secretsmanager:DescribeSecret","secretsmanager:ListSecret","secretsmanager:PutSecretValue","secretsmanager:UpdateSecret"]
+        Action   = ["secretsmanager:GetSecretValue", "secretsmanager:CreateSecret", "secretsmanager:DeleteSecret", "secretsmanager:DescribeSecret", "secretsmanager:ListSecret", "secretsmanager:PutSecretValue", "secretsmanager:UpdateSecret"]
         Resource = "*"
         #Condition = {
         #  StringEquals = {
         #    "aws:ResourceTag/${var.secretkey}" = "${var.secretvalue}" # Only allows reading secrets with this tag
         #  }
-      #  }
+        #  }
       }
     ]
   })
@@ -72,6 +78,38 @@ resource "aws_iam_policy" "secrets_manager_policy" {
 resource "aws_iam_role_policy_attachment" "attach_secrets_manager_policy" {
   role       = aws_iam_role.gateway.name
   policy_arn = aws_iam_policy.secrets_manager_policy.arn
+}
+
+# Attach AWS managed policy for EC2 read-only access
+resource "aws_iam_role_policy_attachment" "attach_ec2_readonly_policy" {
+  role       = aws_iam_role.gateway.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+}
+
+# Attach AWS managed policy for RDS read-only access
+resource "aws_iam_role_policy_attachment" "attach_rds_readonly_policy" {
+  role       = aws_iam_role.gateway.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSReadOnlyAccess"
+}
+
+# Custom inline policy for EKS cluster discovery
+resource "aws_iam_role_policy" "eks_describe_policy" {
+  name = "${var.name}-eks-describe-policy"
+  role = aws_iam_role.gateway.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 
@@ -106,6 +144,8 @@ resource "sdm_resource" "gateway" {
     tags = merge(var.tagset, {
       network = "Public"
       class   = "sdminfra"
+      # Note: Cannot add sdm__cloud_id here due to circular dependency:
+      # sdm_resource generates SSH key → aws_key_pair uses it → aws_instance uses key_pair
       }
     )
 
@@ -129,10 +169,15 @@ resource "aws_instance" "gateway" {
   key_name                    = aws_key_pair.gateway.key_name
 
   # Bootstrap the gateway using the provisioning template
-  user_data = templatefile("gw-provision.tpl", {
+  user_data = templatefile("${path.module}/gw-provision.tpl", {
     sdm_relay_token = sdm_node.gateway.gateway[0].token # Token for gateway registration
     target_user     = "ubuntu"                          # User to run the gateway service
     sdm_domain      = data.env_var.sdm_api.value == "" ? "" : coalesce(join(".", slice(split(".", element(split(":", data.env_var.sdm_api.value), 0)), 1, length(split(".", element(split(":", data.env_var.sdm_api.value), 0))))), "")
+    create_hcvault  = "false" # The gateway never needs to know about Vault
+    vault_version   = ""
+    vault_url       = ""
+    aws_region      = data.aws_region.current.name
+
   })
 
   tags = merge(var.tagset, {

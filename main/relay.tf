@@ -10,6 +10,12 @@
 # - EC2 instance running the StrongDM Relay service
 # - Network configuration for private subnet communication
 # - SSH access for administrative purposes
+#
+# IMPORTANT: Relay tokens are single-use only.
+# To recreate both the SDM node and EC2 instance with a fresh token:
+#   terraform taint 'sdm_node.relay'
+#   terraform taint 'aws_instance.relay'
+# Or use: terraform destroy -target=sdm_node.relay -target=aws_instance.relay && terraform apply
 #--------------------------------------------------------------
 
 # Create a StrongDM relay node in the control plane
@@ -17,8 +23,8 @@ resource "sdm_node" "relay" {
   relay {
     name = "sdm-${var.name}-lab-r" # Relay name visible in StrongDM
     tags = merge(var.tagset, {
-      network = "Private"
-      class   = "sdminfra"
+      network              = "Private"
+      class                = "sdminfra"
       "eng__${var.name}AD" = true
       }
     )
@@ -36,10 +42,14 @@ resource "aws_instance" "relay" {
   iam_instance_profile = aws_iam_instance_profile.gw_instance_profile.name
 
   # Bootstrap the relay using the same provisioning template as gateway
-  user_data = templatefile("gw-provision.tpl", {
+  user_data = templatefile("${path.module}/gw-provision.tpl", {
     sdm_relay_token = sdm_node.relay.relay[0].token # Token for relay registration
     target_user     = "ubuntu"                      # User to run the relay service
     sdm_domain      = data.env_var.sdm_api.value == "" ? "" : coalesce(join(".", slice(split(".", element(split(":", data.env_var.sdm_api.value), 0)), 1, length(split(".", element(split(":", data.env_var.sdm_api.value), 0))))), "")
+    create_hcvault  = var.create_hcvault
+    vault_url       = var.create_hcvault ? one(module.hcvault[*].vault_url) : ""
+    aws_region      = data.aws_region.current.name
+    vault_version   = var.create_hcvault ? var.vault_version : ""
   })
 
   # Use a dedicated network interface in the private subnet
@@ -79,6 +89,8 @@ resource "sdm_resource" "relay" {
     tags = merge(var.tagset, {
       network = "Public" # Note: Using public tag to make visible, even though the resource is private
       class   = "sdminfra"
+      # Note: Cannot add sdm__cloud_id here due to circular dependency:
+      # sdm_resource generates SSH key → aws_key_pair uses it → aws_instance uses key_pair
       }
     )
   }

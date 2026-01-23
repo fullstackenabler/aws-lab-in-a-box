@@ -16,6 +16,7 @@
 module "awsro" {
   source = "../awsro"                         # Reference to the AWS Read-Only module
   count  = var.create_aws_ro == false ? 0 : 1 # Conditionally create based on feature flag
+  name   = var.name                           # Name prefix for unique resource naming
   tagset = var.tagset                         # Tags for resource identification
   role   = aws_iam_role.gateway.arn           # Gateway role ARN for assume role permissions
 
@@ -30,8 +31,9 @@ resource "sdm_resource" "awsrocli" {
     role_arn = one(module.awsro[*].ec2_read_only_role_arn) # ARN of the read-only role
 
     tags = merge(var.tagset, {
-      network = "Public" # Tagged as public for visibility
-      class   = "target" # Identifies as a target resource
+      network       = "Public" # Tagged as public for visibility
+      class         = "target" # Identifies as a target resource
+      sdm__cloud_id = one(module.awsro[*].ec2_read_only_role_arn)
       }
     )
   }
@@ -47,8 +49,9 @@ resource "sdm_resource" "awsroconsole" {
     subdomain = "aws${var.name}"                            # Subdomain for console access
 
     tags = merge(var.tagset, {
-      network = "Public" # Tagged as public for visibility
-      class   = "target" # Identifies as a target resource
+      network       = "Public" # Tagged as public for visibility
+      class         = "target" # Identifies as a target resource
+      sdm__cloud_id = one(module.awsro[*].ec2_read_only_role_arn)
       }
     )
   }

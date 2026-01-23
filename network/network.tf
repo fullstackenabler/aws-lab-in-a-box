@@ -19,7 +19,7 @@
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-vpc"
   })
@@ -33,7 +33,7 @@ resource "aws_subnet" "gateway" {
   vpc_id     = aws_vpc.main.id
   cidr_block = "10.0.254.0/24"
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-public-subnet"
 
@@ -50,7 +50,7 @@ resource "aws_subnet" "relay" {
 
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-subnet"
 
@@ -60,7 +60,7 @@ resource "aws_subnet" "relay" {
 resource "aws_eip" "public" {
   domain = "vpc"
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     class   = "sdminfra"
     }
@@ -68,10 +68,10 @@ resource "aws_eip" "public" {
 }
 
 resource "aws_nat_gateway" "gateway" {
-  subnet_id = aws_subnet.gateway.id
+  subnet_id     = aws_subnet.gateway.id
   allocation_id = aws_eip.public.id
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-public-nat"
 
@@ -80,8 +80,8 @@ resource "aws_nat_gateway" "gateway" {
 }
 
 resource "aws_security_group" "gateway" {
-  name      = "${var.name}-public-sg"
-  vpc_id    = aws_vpc.main.id
+  name   = "${var.name}-public-sg"
+  vpc_id = aws_vpc.main.id
   egress {
     from_port        = 0
     to_port          = 0
@@ -90,33 +90,48 @@ resource "aws_security_group" "gateway" {
     ipv6_cidr_blocks = ["::/0"]
   }
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-public-sg"
   })
 }
 
+resource "aws_vpc_security_group_ingress_rule" "allow_ssh_gateway" {
+  security_group_id = aws_security_group.gateway.id
+  from_port         = 22
+  ip_protocol       = "tcp"
+  to_port           = 22
+  cidr_ipv4         = "0.0.0.0/0"
+
+
+  tags = merge(var.tagset, {
+
+    network = "Public"
+    Name    = "${var.name}-Public-sg"
+  })
+}
+
 resource "aws_vpc_security_group_ingress_rule" "allow_icmp" {
-  security_group_id = aws_security_group.gateway.id  
+  security_group_id = aws_security_group.gateway.id
   ip_protocol       = "icmp"
   cidr_ipv4         = "0.0.0.0/0"
-  from_port = -1
-  to_port = -1
+  from_port         = -1
+  to_port           = -1
 
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-Public-sg"
   })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "allow_strongdm_gateway" {
-  security_group_id = aws_security_group.gateway.id  
+  security_group_id = aws_security_group.gateway.id
   from_port         = 5000
   ip_protocol       = "tcp"
   to_port           = 5000
   cidr_ipv4         = "0.0.0.0/0"
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Public"
     Name    = "${var.name}-Public-sg"
   })
@@ -125,8 +140,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_strongdm_gateway" {
 
 
 resource "aws_security_group" "relay" {
-    name      = "${var.name}-private-sg"
-    vpc_id    = aws_vpc.main.id
+  name   = "${var.name}-private-sg"
+  vpc_id = aws_vpc.main.id
   egress {
     from_port        = 0
     to_port          = 0
@@ -134,21 +149,21 @@ resource "aws_security_group" "relay" {
     cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
   }
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "allow_icmp_relay" {
-  security_group_id = aws_security_group.relay.id  
+  security_group_id = aws_security_group.relay.id
   ip_protocol       = "icmp"
   cidr_ipv4         = "0.0.0.0/0"
-  from_port = -1
-  to_port = -1
+  from_port         = -1
+  to_port           = -1
 
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-Private-sg"
   })
@@ -161,8 +176,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_postgresql" {
   from_port         = 5432
   ip_protocol       = "tcp"
   to_port           = 5432
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -175,8 +190,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_documentdb" {
   from_port         = 27017
   ip_protocol       = "tcp"
   to_port           = 27017
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -189,6 +204,35 @@ resource "aws_vpc_security_group_ingress_rule" "allow_windows" {
   from_port         = 3389
   ip_protocol       = "tcp"
   to_port           = 3389
+
+  tags = merge(var.tagset, {
+    network = "Private"
+    Name    = "${var.name}-private-sg"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_kpasswd" {
+  count             = var.create_windows_target || var.create_domain_controller ? 1 : 0
+  security_group_id = aws_security_group.relay.id
+  cidr_ipv4         = aws_vpc.main.cidr_block
+  from_port         = 464
+  ip_protocol       = "tcp"
+  to_port           = 464
+
+  tags = merge(var.tagset, {
+    network = "Private"
+    Name    = "${var.name}-private-sg"
+  })
+}
+
+
+resource "aws_vpc_security_group_ingress_rule" "allow_hcvault" {
+  count             = var.create_hcvault ? 1 : 0
+  security_group_id = aws_security_group.relay.id
+  cidr_ipv4         = aws_vpc.main.cidr_block
+  from_port         = 8200
+  ip_protocol       = "tcp"
+  to_port           = 8200
   
   tags = merge (var.tagset, {
     network = "Private"
@@ -203,8 +247,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_dns_udp" {
   from_port         = 53
   ip_protocol       = "udp"
   to_port           = 53
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -217,8 +261,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_dns_tcp" {
   from_port         = 53
   ip_protocol       = "tcp"
   to_port           = 53
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -231,8 +275,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ldap_udp" {
   from_port         = 389
   ip_protocol       = "udp"
   to_port           = 389
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -245,8 +289,25 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ldap_tcp" {
   from_port         = 389
   ip_protocol       = "tcp"
   to_port           = 389
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
+    network = "Private"
+    Name    = "${var.name}-private-sg"
+  })
+}
+
+# Global Catalog ports (3268/3269) - Required for SSSD enumeration on Linux targets
+# These ports allow domain-joined Linux machines to enumerate AD groups and resolve
+# group names instead of showing numeric GIDs
+resource "aws_vpc_security_group_ingress_rule" "allow_gc_tcp" {
+  count             = var.create_windows_target || var.create_domain_controller ? 1 : 0
+  security_group_id = aws_security_group.relay.id
+  cidr_ipv4         = aws_vpc.main.cidr_block
+  from_port         = 3268
+  ip_protocol       = "tcp"
+  to_port           = 3269
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -259,8 +320,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ldaps_tcp" {
   from_port         = 636
   ip_protocol       = "tcp"
   to_port           = 636
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -273,8 +334,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ldaps_udp" {
   from_port         = 636
   ip_protocol       = "udp"
   to_port           = 636
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -288,8 +349,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_krb_tcp" {
   from_port         = 88
   ip_protocol       = "tcp"
   to_port           = 88
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -302,8 +363,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_rpc_tcp" {
   from_port         = 135
   ip_protocol       = "tcp"
   to_port           = 135
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -316,8 +377,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_netbios_tcp" {
   from_port         = 139
   ip_protocol       = "tcp"
   to_port           = 139
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -344,8 +405,22 @@ resource "aws_vpc_security_group_ingress_rule" "allow_smb_tcp" {
   from_port         = 445
   ip_protocol       = "tcp"
   to_port           = 445
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
+    network = "Private"
+    Name    = "${var.name}-private-sg"
+  })
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_winrm_tcp" {
+  count             = var.create_windows_target || var.create_domain_controller ? 1 : 0
+  security_group_id = aws_security_group.relay.id
+  cidr_ipv4         = aws_vpc.main.cidr_block
+  from_port         = 5985
+  ip_protocol       = "tcp"
+  to_port           = 5986
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -358,8 +433,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ad_tcp" {
   from_port         = 49152
   ip_protocol       = "tcp"
   to_port           = 65535
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -372,8 +447,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_linux" {
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -386,8 +461,8 @@ resource "aws_vpc_security_group_ingress_rule" "allow_https" {
   from_port         = 443
   ip_protocol       = "tcp"
   to_port           = 443
-  
-  tags = merge (var.tagset, {
+
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-private-sg"
   })
@@ -402,13 +477,13 @@ resource "aws_default_route_table" "main" {
   }
 
 
-  tags = merge (var.tagset, {
+  tags = merge(var.tagset, {
     network = "Private"
     Name    = "${var.name}-route-table"
   })
 }
 resource "aws_route_table_association" "main" {
-  subnet_id = aws_subnet.gateway.id
+  subnet_id      = aws_subnet.gateway.id
   route_table_id = aws_default_route_table.main.id
 }
 
@@ -416,8 +491,8 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.gateway.id
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.gateway.id
   }
 
   tags = {

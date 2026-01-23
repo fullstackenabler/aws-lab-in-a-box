@@ -117,13 +117,25 @@ variable "secretvalue" {
 #---------- AWS Access Configuration ----------#
 
 variable "create_aws_ro" {
-  description = "Create an access profile for StrongDM users in AWS with ReadOnly S3 Permissions"
+  description = "Create an access profile for StrongDM users in AWS with ReadOnly Permissions"
   type        = bool
   default     = false
 }
 
-variable "create_s3_rw" {
+variable "create_aws_s3ro" {
+  description = "Create an access profile for StrongDM users in AWS with Read Only S3 Permissions"
+  type        = bool
+  default     = false
+}
+
+variable "create_aws_s3full" {
   description = "Create an access profile for StrongDM users in AWS with Full S3 Permissions"
+  type        = bool
+  default     = false
+}
+
+variable "create_aws_gluefull" {
+  description = "Create an access profile for StrongDM users in AWS with Full Glue Permissions"
   type        = bool
   default     = false
 }
@@ -139,13 +151,14 @@ variable "region" {
 #---------- Secrets Management Configuration ----------#
 variable "domain_users" {
   description = "Set of map of users to be created in the Directory"
-  type        = set(object({
+  type = set(object({
     SamAccountName = string
     GivenName      = string
     Surname        = string
+    domainadmin    = optional(bool, false) # Optional: if true, user will be added to Domain Admins group
     tags           = map(string)
-    }))
-  default     = null
+  }))
+  default = null
 }
 
 variable "create_managedsecrets" {
@@ -153,3 +166,17 @@ variable "create_managedsecrets" {
   type        = bool
   default     = false
 }
+
+// Flag to enable creation of HashiCorp Vault instance
+variable "create_hcvault" {
+  description = "Create a HashiCorp Vault Development Instance for testing"
+  type        = bool
+  default     = false
+}
+
+variable "vault_version" {
+  description = "Version of HashiCorp Vault to download"
+  type        = string
+  default     = "1.18.4"
+}
+

@@ -39,6 +39,12 @@ variable "ami" {
   type        = string
 }
 
+variable "use_packer_ami" {
+  description = "Set to true if using a Packer-built AMI with pre-installed ADDS/DNS features. This will use the optimized installation script (install-dc-from-ami.ps1.tpl) which skips feature installation and hostname rename, reducing deployment time from ~18 min to ~11 min. Set to false (default) to use vanilla Windows Server AMI with full installation (install-dc.ps1.tpl)."
+  type        = bool
+  default     = false
+}
+
 variable "target_user" {
   description = "User for Health check"
   type        = string
@@ -48,43 +54,44 @@ variable "target_user" {
 # Generate a secure random password for the domain administrator
 resource "random_password" "admin_password" {
   length      = 20
-  special     = false  # Avoid special chars for better compatibility
-  min_numeric = 1      # Ensure at least one number
-  min_upper   = 1      # Ensure at least one uppercase letter
-  min_lower   = 1      # Ensure at least one lowercase letter
+  special     = false # Avoid special chars for better compatibility
+  min_numeric = 1     # Ensure at least one number
+  min_upper   = 1     # Ensure at least one uppercase letter
+  min_lower   = 1     # Ensure at least one lowercase letter
 }
 
 variable "domain_users" {
   description = "Set of map of users to be created in the Directory"
-  type        = set(object({
+  type = set(object({
     SamAccountName = string
     GivenName      = string
     Surname        = string
+    domainadmin    = optional(bool, false) # Optional: if true, user will be added to Domain Admins group
     tags           = map(string)
-    }))
-  default     = null
+  }))
+  default = null
 }
 
 # Local variables for module operation
 locals {
   admin_password = random_password.admin_password.result
-  
+
   # Determine the operating system to use the appropriate script
   # This checks if we're running on Windows (has a C: drive) to select the right script
-  is_linux = length(regexall("c:", lower(abspath(path.root)))) > 0
+  is_linux    = length(regexall("c:", lower(abspath(path.root)))) > 0
   interpreter = local.is_linux ? "powershell" : "bash"
-  script      = format("%s/%s",path.module,local.is_linux ? "windowsrdpca.ps1" : "windowsrdpca.sh")
-  
+  script      = format("%s/%s", path.module, local.is_linux ? "windowsrdpca.ps1" : "windowsrdpca.sh")
+
   # Construct a consistent tag set for all resources in this module
-  thistagset = merge (var.tagset, {
+  thistagset = merge(var.tagset, {
     network = "Private"
     class   = "sdminfra"
     Name    = "sdm-${var.name}-domain-controller"
     }
-  )  
+  )
 }
 
 variable "rdpca" {
   description = "RDP CA to import into the domain controller"
-  type = string
+  type        = string
 }

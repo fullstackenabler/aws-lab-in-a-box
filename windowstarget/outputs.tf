@@ -7,27 +7,32 @@
 #--------------------------------------------------------------
 
 output "windowstarget_fqdn" {
-    value = aws_instance.windowstarget.private_dns
-    description = "Private DNS name of the Windows target for RDP connections"
+  value       = aws_instance.windowstarget.private_dns
+  description = "Private DNS name of the Windows target for RDP connections"
 }
 
 output "windowstarget_ip" {
-    value = aws_instance.windowstarget.private_ip
-    description = "Private IP address of the Windows target for RDP connections"
+  value       = aws_instance.windowstarget.private_ip
+  description = "Private IP address of the Windows target for RDP connections"
 }
 
 output "windowstarget_username" {
-    value = "administrator"
-    description = "Default administrator username for RDP connections"
+  value       = "administrator"
+  description = "Default administrator username for RDP connections"
 }
 
 output "windowstarget_password" {
-    value = rsadecrypt(aws_instance.windowstarget.password_data, var.private_key_pem)
-    description = "Decrypted administrator password for RDP connections"
-    sensitive = true
+  value       = rsadecrypt(aws_instance.windowstarget.password_data, var.private_key_pem)
+  description = "Decrypted administrator password for RDP connections"
+  sensitive   = true
 }
 
 output "thistagset" {
-    value = local.thistagset
-    description = "Tags applied to the Windows target, used for consistent resource management"
+  value       = local.thistagset
+  description = "Tags applied to the Windows target, used for consistent resource management"
+}
+
+output "instance_id" {
+  value       = aws_instance.windowstarget.id
+  description = "EC2 instance ID of the Windows target"
 }

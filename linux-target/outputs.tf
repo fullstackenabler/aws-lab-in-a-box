@@ -7,16 +7,21 @@
 #--------------------------------------------------------------
 
 output "target_hostname" {
-    value = aws_instance.ssh-target.private_ip
-    description = "Private IP address of the Linux target for SSH connections"
+  value       = aws_instance.ssh-target.private_ip
+  description = "Private IP address of the Linux target for SSH connections"
 }
 
 output "target_username" {
-    value = var.target_user
-    description = "Username to use for SSH connections via StrongDM"
+  value       = var.target_user
+  description = "Username to use for SSH connections via StrongDM"
 }
 
 output "thistagset" {
-    value = local.thistagset
-    description = "Tags applied to the Linux target, used for consistent resource management"
+  value       = local.thistagset
+  description = "Tags applied to the Linux target, used for consistent resource management"
+}
+
+output "instance_id" {
+  value       = aws_instance.ssh-target.id
+  description = "EC2 instance ID of the Linux target"
 }

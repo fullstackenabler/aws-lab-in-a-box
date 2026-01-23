@@ -36,6 +36,8 @@ The lab environment creates a secure network architecture with:
 
 In addition to the usual access credentials for AWS, the modules require an access key to StrongDM with the following privileges:
 
+![StrongDM Permissions](doc/strongdm-permissions.png?raw=true)
+
 ```bash
 sdm admin tokens add TerraformSecMgmt --permissions secretstore:list,secretstore:create,secretstore:update,secretstore:delete,organization:view_settings,relay:list,relay:create,policy:read,policy:write,datasource:list,datasource:create,datasource:update,datasource:delete,datasource:healthcheck,resourcelock:delete,resourcelock:list,accessrequest:requester,secretengine:create,secretengine:list,secretengine:delete,secretengine:update,managedsecret:list,managedsecret:update,managedsecret:create,managedsecret:read,managedsecret:delete --duration 648000 --type api
 ```
@@ -131,6 +133,8 @@ Set-ExecutionPolicy Bypass
 Setting up a domain controller takes several reboots. This is implemented by a persistent PowerShell script that runs at each reboot and has flow control through creating some "flag files" in C:\ with the "done" extension as each step is completed. You can reference the full PowerShell script [here](dc/install-dc.ps1.tpl).
 
 Note that you cannot deploy the "Windows target" until the domain controller is up and running.
+
+As per Microsoft [KB5014754](https://support.microsoft.com/en-us/topic/kb5014754-certificate-based-authentication-changes-on-windows-domain-controllers-ad2c23b0-15d8-4340-a468-4d4f3b188f16) the SID must be added for users or Identity Aliases manually at this point.
 
 ## Training Scenarios
 
